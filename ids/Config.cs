@@ -16,8 +16,10 @@ namespace ids
             };
 
         public static IEnumerable<ApiScope> ApiScopes =>
-            new ApiScope[]
-            { };
+            new List<ApiScope>
+            {
+                new ApiScope("api1", "My API")
+            };
 
         public static IEnumerable<Client> Clients =>
             new List<Client>
@@ -38,12 +40,6 @@ namespace ids
                     // scopes that client has access to
                     AllowedScopes = { "api1" }
                 }
-            };
-
-        public static IEnumerable<ApiResource> GetApis() =>
-            new List<ApiResource>
-            {
-                new ApiResource("api1", "My API")
             };
     }
 }
