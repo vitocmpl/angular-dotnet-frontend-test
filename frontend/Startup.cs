@@ -38,6 +38,7 @@ namespace frontend
 
                     options.SaveTokens = true;
 
+                    options.Scope.Add("api1");
                     options.Scope.Add("profile");
                     options.GetClaimsFromUserInfoEndpoint = true;
                 });
@@ -54,21 +55,59 @@ namespace frontend
             app.UseRouting();
             app.UseAuthentication();
 
+            app.Use(async (context, next) =>
+            {
+                if(!context.User.Identity.IsAuthenticated)
+                {
+                     await context.ChallengeAsync("oidc");
+                }
+                else
+                {
+                    await next();
+                }
+            });
+
+            app.Use(async (context, next) =>
+            {
+                if(context.Request.Path.Value == "/index.html")
+                {
+                    context.Response.Headers.Add("Cache-Control", "no-store,no-cache");
+                    context.Response.Headers.Add("Pragma", "no-cache");
+
+                    await SelectPhase(context);
+                }
+                else
+                {
+                    await next();
+                }
+            });
+
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+            
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapGet("/", async context =>
+                endpoints.MapFallback(async context => 
                 {
-                    if(!context.User.Identity.IsAuthenticated)
-                    {
-                        await context.ChallengeAsync("oidc");
-                    }
-                    else
-                    {
-                        var name = context.User.FindFirst("name")?.Value;
-                        await context.Response.WriteAsync($"Hello World {name}!");
-                    }
+                   context.Response.Redirect("/index.html");
+                   await Task.CompletedTask;
                 });
             });
+        }
+
+        private async Task SelectPhase(HttpContext context)
+        {
+            var name = context.User.FindFirst("name")?.Value;
+            if(name.ToLower().StartsWith("alice"))
+            {
+                context.Response.Redirect("/phased/index.html");
+            }
+            else
+            {
+                context.Response.Redirect("/index.html");
+            }
+
+            await Task.CompletedTask;
         }
     }
 }
