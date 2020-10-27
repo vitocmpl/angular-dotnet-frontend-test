@@ -8,7 +8,7 @@ import { AuthService } from './auth/auth.service';
   template: `
     <div style="text-align:center" class="content">
       <h1>
-        App version: {{version}}!
+        App phased: {{isPhased}}
       </h1>
       <h2>Login ok: {{ loginOk }}</h2>
       <h2>Api ok: {{ apiOk }}</h2>
@@ -19,13 +19,18 @@ import { AuthService } from './auth/auth.service';
   styles: []
 })
 export class AppComponent implements OnInit {
-  version = "last";
+  isPhased = false;
   loginOk = false;
   apiOk = false;
 
   constructor(private http: HttpClient, private authService: AuthService) { }
 
   ngOnInit() {
+
+    if(!environment.production) {
+      this.isPhased = window.location.href.indexOf('phased') >= 0;
+    }
+
     this.loginOk = this.authService.isLogged();
 
     if(this.loginOk) {

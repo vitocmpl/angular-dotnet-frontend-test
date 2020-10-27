@@ -65,20 +65,55 @@ namespace frontend
                 app.UseCors("CorsPolicy");
 
                 app.UseDeveloperExceptionPage();
+            } 
 
+            app.UseRouting();
+            app.UseAuthentication();
+            app.UseAuthorization();
+
+            if (env.IsDevelopment())
+            {
+                //fallback su applicazione angular in serve su localhost:4200
                 app.Use(async (context, next) =>
                 {
-                    await next();
                     if (context.Request.Path.Value== "/")
                     {
-                        context.Response.Redirect("http://localhost:4200/");
+                        string phased = NeedPhase(context) ? "?phased=true" : "/";
+                        context.Response.Redirect("http://localhost:4200" + phased);
                         return;
+                    }
+                    else 
+                    {
+                        await next();
                     }
                 });
             } 
             else 
             {
-                app.UseHttpsRedirection();
+                app.Use(async (context, next) =>
+                {
+                    if(context.Request.Path.Value == "/")
+                    {
+                        await SelectPhase(context, next);
+                    }
+                    else
+                    {
+                        await next();
+                    }
+                });
+
+                //TODO: abililtare per esegure il challenge su tutte le risorse statiche
+                // app.Use(async (context, next) =>
+                // {
+                //     if(!context.User.Identity.IsAuthenticated)
+                //     {
+                //          await context.ChallengeAsync("oidc");
+                //     }
+                //     else
+                //     {
+                //         await next();
+                //     }
+                // });
             }
 
             app.UseDefaultFiles();
@@ -92,37 +127,6 @@ namespace frontend
                     }
                 }
             });
-
-            app.UseRouting();
-            app.UseAuthentication();
-            app.UseAuthorization();
-
-            // app.Use(async (context, next) =>
-            // {
-            //     if(!context.User.Identity.IsAuthenticated)
-            //     {
-            //          await context.ChallengeAsync("oidc");
-            //     }
-            //     else
-            //     {
-            //         await next();
-            //     }
-            // });
-
-            // app.Use(async (context, next) =>
-            // {
-            //     if(context.Request.Path.Value == "/index.html")
-            //     {
-            //         context.Response.Headers.Add("Cache-Control", "no-store,no-cache");
-            //         context.Response.Headers.Add("Pragma", "no-cache");
-
-            //         await SelectPhase(context);
-            //     }
-            //     else
-            //     {
-            //         await next();
-            //     }
-            // });
             
             if (env.IsDevelopment())
             {
@@ -141,19 +145,35 @@ namespace frontend
             }
         }
 
-        private async Task SelectPhase(HttpContext context)
+        private async Task SelectPhase(HttpContext context, Func<Task> next)
         {
-            var name = context.User.FindFirst("name")?.Value;
-            if(name.ToLower().StartsWith("alice"))
+            var needPhase = NeedPhase(context);
+            if(needPhase)
             {
-                context.Response.Redirect("/phased/index.html");
+                context.Response.Redirect("/phased/");
             }
             else
             {
-                context.Response.Redirect("/index.html");
+                await next();
+            }
+        }
+
+        private bool NeedPhase(HttpContext context)
+        {
+            if(!context.User.Identity.IsAuthenticated)
+            {
+                return false;
             }
 
-            await Task.CompletedTask;
+            var name = context.User.FindFirst("name")?.Value;
+            if(name.ToLower().StartsWith("alice"))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 }
