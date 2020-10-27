@@ -78,8 +78,7 @@ namespace frontend
                 {
                     if (context.Request.Path.Value== "/")
                     {
-                        string phased = NeedPhase(context) ? "?phased=true" : "/";
-                        context.Response.Redirect("http://localhost:4200" + phased);
+                        context.Response.Redirect("http://localhost:4200/");
                         return;
                     }
                     else 
