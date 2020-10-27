@@ -20,6 +20,17 @@ namespace frontend
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddControllers();
+
+            services.AddCors(o => o.AddPolicy("CorsPolicy", builder =>
+            {
+                builder
+                    .WithOrigins(new[]{ "http://localhost:4200" })
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+            }));
+
             JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
 
             services.AddAuthentication(options =>
@@ -42,6 +53,8 @@ namespace frontend
                     options.Scope.Add("profile");
                     options.GetClaimsFromUserInfoEndpoint = true;
                 });
+
+            services.AddAuthorization();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -49,50 +62,83 @@ namespace frontend
         {
             if (env.IsDevelopment())
             {
+                app.UseCors("CorsPolicy");
+
                 app.UseDeveloperExceptionPage();
+
+                app.Use(async (context, next) =>
+                {
+                    await next();
+                    if (context.Request.Path.Value== "/")
+                    {
+                        context.Response.Redirect("http://localhost:4200/");
+                        return;
+                    }
+                });
+            } 
+            else 
+            {
+                app.UseHttpsRedirection();
             }
+
+            app.UseDefaultFiles();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                OnPrepareResponse = context =>
+                {                   
+                    if (context.File.Name == "index.html" ) {
+                        context.Context.Response.Headers.Add("Cache-Control", "no-cache, no-store");
+                        context.Context.Response.Headers.Add("Expires", "-1");
+                    }
+                }
+            });
 
             app.UseRouting();
             app.UseAuthentication();
+            app.UseAuthorization();
 
-            app.Use(async (context, next) =>
-            {
-                if(!context.User.Identity.IsAuthenticated)
-                {
-                     await context.ChallengeAsync("oidc");
-                }
-                else
-                {
-                    await next();
-                }
-            });
+            // app.Use(async (context, next) =>
+            // {
+            //     if(!context.User.Identity.IsAuthenticated)
+            //     {
+            //          await context.ChallengeAsync("oidc");
+            //     }
+            //     else
+            //     {
+            //         await next();
+            //     }
+            // });
 
-            app.Use(async (context, next) =>
-            {
-                if(context.Request.Path.Value == "/index.html")
-                {
-                    context.Response.Headers.Add("Cache-Control", "no-store,no-cache");
-                    context.Response.Headers.Add("Pragma", "no-cache");
+            // app.Use(async (context, next) =>
+            // {
+            //     if(context.Request.Path.Value == "/index.html")
+            //     {
+            //         context.Response.Headers.Add("Cache-Control", "no-store,no-cache");
+            //         context.Response.Headers.Add("Pragma", "no-cache");
 
-                    await SelectPhase(context);
-                }
-                else
-                {
-                    await next();
-                }
-            });
-
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
+            //         await SelectPhase(context);
+            //     }
+            //     else
+            //     {
+            //         await next();
+            //     }
+            // });
             
-            app.UseEndpoints(endpoints =>
+            if (env.IsDevelopment())
             {
-                endpoints.MapFallback(async context => 
+                app.UseEndpoints(endpoints =>
                 {
-                   context.Response.Redirect("/index.html");
-                   await Task.CompletedTask;
+                    endpoints.MapControllers();
                 });
-            });
+            }
+            else
+            {
+                app.UseEndpoints(endpoints =>
+                {
+                    endpoints.MapControllers();
+                    endpoints.MapFallbackToFile("/index.html");
+                });
+            }
         }
 
         private async Task SelectPhase(HttpContext context)

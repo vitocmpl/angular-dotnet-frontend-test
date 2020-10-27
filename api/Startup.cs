@@ -12,6 +12,15 @@ namespace api
         {
             services.AddControllers();
 
+            services.AddCors(o => o.AddPolicy("CorsPolicy", builder =>
+            {
+                builder
+                    .WithOrigins(new[]{ "http://localhost:4200", "https://localhost:7001" })
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+            }));
+
             services.AddAuthentication("Bearer")
                 .AddJwtBearer("Bearer", options =>
                 {
@@ -37,6 +46,8 @@ namespace api
         public void Configure(IApplicationBuilder app)
         {
             app.UseRouting();
+
+            app.UseCors("CorsPolicy");
 
             app.UseAuthentication();
             app.UseAuthorization();
